@@ -23,7 +23,7 @@ def dict_to_list(a):
 args = parse_args()
 INFERENCE = False
 PRINT_INTERVAL = 5000
-MAX_EPISODES = 2#args.n_ep
+MAX_EPISODES = args.n_ep
 BATCH_SIZE = args.batch_size
 MAX_STEPS = 25
 SEED = args.seed
@@ -118,6 +118,7 @@ for i in range(MAX_EPISODES):
         data_processed = dict_to_list(data)
         obs_, rewards, terminations, truncations, info = data_processed
         done = (terminations or truncations)
+        obs_ = add_comm(obs_, comm_actions)
         # if INFERENCE and done:
         #     env.render(render_mode="human")
         if step >= MAX_STEPS-1 and not INFERENCE:
@@ -130,7 +131,7 @@ for i in range(MAX_EPISODES):
         if (not INFERENCE) and total_steps % args.learn_delay == 0:
             maddpg.learn(memory)
         
-        obs = add_comm(obs_, comm_actions)
+        obs = obs_
         rewards_ep_list.append(rewards) 
         score += rewards[0]#+rewards["agent_1"]) #sum(rewards.values())
         step += 1
