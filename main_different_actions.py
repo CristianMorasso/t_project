@@ -10,10 +10,19 @@ import torch
 import gym
 import pandas as pd
 import os
-def add_comm(obs, actions):
-    for i,o in enumerate(obs):
-        o[-3:] = actions
-        obs[i] = o
+def add_comm(obs, actions, type="broadcast"):
+    if type== "broadcast":
+        for i,o in enumerate(obs):
+            o[-3:] = actions
+            obs[i] = o
+        
+    elif type == "direct":
+        for i, o in enumerate(obs):
+            idxs = list(range(len(obs)))
+            idxs.remove(i)
+            direct_act = actions[idxs]
+            o[-2:] = direct_act
+            obs[i] = o
     return obs
 def dict_to_list(a):
     groups = []
@@ -118,7 +127,7 @@ for i in range(MAX_EPISODES):
         data_processed = dict_to_list(data)
         obs_, rewards, terminations, truncations, info = data_processed
         done = (terminations or truncations)
-        obs_ = add_comm(obs_, comm_actions)
+        obs_ = add_comm(obs_, comm_actions, "direct")
         # if INFERENCE and done:
         #     env.render(render_mode="human")
         if step >= MAX_STEPS-1 and not INFERENCE:
