@@ -21,7 +21,7 @@ def add_comm(obs, actions, type="broadcast"):
             idxs = list(range(len(obs)))
             idxs.remove(i)
             direct_act = actions[idxs]
-            o[-2:] = direct_act
+            o[-np.dot(*direct_act.shape):] = direct_act.reshape(-1)
             obs[i] = o
     return obs
 def dict_to_list(a):
@@ -91,9 +91,10 @@ torch.backends.cudnn.deterministic = True
 n_agents = env.num_agents
 actor_dims = []
 action_dim = []
+comm_channels= 2
 for i in range(n_agents):
     actor_dims.append(env.observation_space(env.agents[i]).shape[0])#s[list(env.observation_spaces.keys())[i]].shape[0])  
-    action_dim.append(env.action_space(env.agents[i]).shape[0]+1)# +1 is the comunication channel
+    action_dim.append(env.action_space(env.agents[i]).shape[0]+comm_channels)# comm_channels is the comunication channel
 critic_dims = sum(actor_dims)
 # action_dim = env.action_space(env.agents[0]).shape[0]
 maddpg = MADDPG(actor_dims, critic_dims+sum(action_dim), n_agents, action_dim,chkpt_dir=f"{nets_out_dir}", scenario=f"/{env_name}{params}", seed=SEED, args=args)
@@ -121,8 +122,8 @@ for i in range(MAX_EPISODES):
 
         
         actions = maddpg.choose_action(obs, k=k, eval=INFERENCE,ep=i, max_ep=MAX_EPISODES, WANDB=WANDB)
-        comm_actions = np.array(actions).squeeze()[:,-1]
-        actions_dict = {agent:action[0,:-1].reshape(-1) for agent, action in zip(env.agents, actions)}
+        comm_actions = np.array(actions).squeeze()[:,-comm_channels:]
+        actions_dict = {agent:action[0,:-comm_channels].reshape(-1) for agent, action in zip(env.agents, actions)}
         data = env.step(actions_dict)
         data_processed = dict_to_list(data)
         obs_, rewards, terminations, truncations, info = data_processed
