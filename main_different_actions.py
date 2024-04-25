@@ -10,20 +10,23 @@ import torch
 import gym
 import pandas as pd
 import os
-def add_comm(obs, actions, type="broadcast"):
+def add_comm(obs, dest_obs, actions, type="broadcast"):
     if type== "broadcast":
         for i,o in enumerate(obs):
-            o[-3:] = actions
-            obs[i] = o
+            # o[-3:] = actions
+            # obs[i] = o
+            dest_obs[i][:o.shape[0]] = o
+            dest_obs[i][-3:] = actions
         
     elif type == "direct":
         for i, o in enumerate(obs):
+            dest_obs[i][:o.shape[0]] = o
             idxs = list(range(len(obs)))
             idxs.remove(i)
             direct_act = actions[idxs]
-            o[-np.dot(*direct_act.shape):] = direct_act.reshape(-1)
-            obs[i] = o
-    return obs
+            dest_obs[i][-np.dot(*direct_act.shape):] = direct_act.reshape(-1)
+            
+    return dest_obs
 def dict_to_list(a):
     groups = []
     for item in a:
@@ -88,6 +91,7 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 torch.backends.cudnn.deterministic = True
 
+
 n_agents = env.num_agents
 actor_dims = []
 action_dim = []
@@ -104,6 +108,8 @@ memory = [MultiAgenReplayBuffer(critic_dims, actor_dims, action_dim,n_agents, ba
 # seed = 0
 rewards_history = []
 rewards_tot = collections.deque(maxlen=100)
+new_obs_format = [np.zeros(d) for d in actor_dims]
+
 for i in range(MAX_EPISODES):
     
     k = np.random.randint(0, args.sub_policy)
@@ -112,11 +118,12 @@ for i in range(MAX_EPISODES):
     obs=list(obs.values())
     done = [False] * n_agents
     rewards_ep_list = []
-
+    comm_actions = np.zeros((n_agents,comm_channels))
+    
+    obs = add_comm(obs, new_obs_format, comm_actions, "direct")
     
     # for agent in env.agent_iter():
     # observation, reward, termination, truncation, info = env.last()
-    
     score = 0
     while  not any(done):#env.agents or
 
@@ -128,7 +135,7 @@ for i in range(MAX_EPISODES):
         data_processed = dict_to_list(data)
         obs_, rewards, terminations, truncations, info = data_processed
         done = (terminations or truncations)
-        obs_ = add_comm(obs_, comm_actions, "direct")
+        obs_ = add_comm(obs_, new_obs_format, comm_actions, "direct")
         # if INFERENCE and done:
         #     env.render(render_mode="human")
         if step >= MAX_STEPS-1 and not INFERENCE:
