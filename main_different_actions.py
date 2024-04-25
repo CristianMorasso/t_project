@@ -91,9 +91,9 @@ torch.backends.cudnn.deterministic = True
 n_agents = env.num_agents
 actor_dims = []
 action_dim = []
-comm_channels= 2
+comm_channels= 3
 for i in range(n_agents):
-    actor_dims.append(env.observation_space(env.agents[i]).shape[0])#s[list(env.observation_spaces.keys())[i]].shape[0])  
+    actor_dims.append(env.observation_space(env.agents[i]).shape[0]+(comm_channels-2 if comm_channels > 2 else 0))#s[list(env.observation_spaces.keys())[i]].shape[0])  
     action_dim.append(env.action_space(env.agents[i]).shape[0]+comm_channels)# comm_channels is the comunication channel
 critic_dims = sum(actor_dims)
 # action_dim = env.action_space(env.agents[0]).shape[0]
