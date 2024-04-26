@@ -23,8 +23,22 @@ def add_comm(obs, dest_obs, actions, type="broadcast"):
             dest_obs[i][:o.shape[0]] = o
             idxs = list(range(len(obs)))
             idxs.remove(i)
+            # direct_act = actions[idxs]
+            dest_obs[i][-np.dot(*actions[idxs].shape):] = actions[idxs].reshape(-1)
+    elif type == "directEsc":
+        
+        for i, o in enumerate(obs):
+            dest_obs[i][:o.shape[0]] = o
+            idxs = list(range(len(obs)))
+            idxs.remove(i)
             direct_act = actions[idxs]
-            dest_obs[i][-np.dot(*direct_act.shape):] = direct_act.reshape(-1)
+            if i == 0:
+                agent_spec_obs = np.array([direct_act[0,0], direct_act[1,0]])
+            if i == 1:
+                agent_spec_obs = np.array([direct_act[0,0], direct_act[1,1]])
+            if i == 2:
+                agent_spec_obs = np.array([direct_act[0,1], direct_act[1,1]])
+            dest_obs[i][-np.dot(*agent_spec_obs.shape):] = agent_spec_obs.reshape(-1)
             
     return dest_obs
 def dict_to_list(a):
@@ -95,10 +109,12 @@ torch.backends.cudnn.deterministic = True
 n_agents = env.num_agents
 actor_dims = []
 action_dim = []
-comm_channels= 3
+comm_type = "directEsc"
+comm_target = env.num_agents -1
+comm_channels= 2
 for i in range(n_agents):
-    actor_dims.append(env.observation_space(env.agents[i]).shape[0]+(comm_channels-2 if comm_channels > 2 else 0))#s[list(env.observation_spaces.keys())[i]].shape[0])  
-    action_dim.append(env.action_space(env.agents[i]).shape[0]+comm_channels)# comm_channels is the comunication channel
+    actor_dims.append(env.observation_space(env.agents[i]).shape[0]+((comm_channels-2 )*comm_target if comm_channels > 2 else 0))#s[list(env.observation_spaces.keys())[i]].shape[0])  
+    action_dim.append(env.action_space(env.agents[i]).shape[0]+comm_channels*comm_target)# comm_channels is the comunication channel
 critic_dims = sum(actor_dims)
 # action_dim = env.action_space(env.agents[0]).shape[0]
 maddpg = MADDPG(actor_dims, critic_dims+sum(action_dim), n_agents, action_dim,chkpt_dir=f"{nets_out_dir}", scenario=f"/{env_name}{params}", seed=SEED, args=args)
@@ -118,9 +134,8 @@ for i in range(MAX_EPISODES):
     obs=list(obs.values())
     done = [False] * n_agents
     rewards_ep_list = []
-    comm_actions = np.zeros((n_agents,comm_channels))
-    
-    obs = add_comm(obs, new_obs_format, comm_actions, "direct")
+    comm_actions = np.zeros((n_agents,comm_target, comm_channels))
+    obs = add_comm(obs, new_obs_format, comm_actions, comm_type)
     
     # for agent in env.agent_iter():
     # observation, reward, termination, truncation, info = env.last()
@@ -129,13 +144,17 @@ for i in range(MAX_EPISODES):
 
         
         actions = maddpg.choose_action(obs, k=k, eval=INFERENCE,ep=i, max_ep=MAX_EPISODES, WANDB=WANDB)
-        comm_actions = np.array(actions).squeeze()[:,-comm_channels:]
-        actions_dict = {agent:action[0,:-comm_channels].reshape(-1) for agent, action in zip(env.agents, actions)}
+        if comm_type == "directEsc":
+            comm_actions = np.array(actions).squeeze()[:,-comm_channels*comm_target:].reshape(n_agents, comm_target, comm_channels)
+            actions_dict = {agent:action[0,:-comm_channels*comm_target].reshape(-1) for agent, action in zip(env.agents, actions)}
+        else:
+            comm_actions = np.array(actions).squeeze()[:,-comm_channels:]
+            actions_dict = {agent:action[0,:-comm_channels].reshape(-1) for agent, action in zip(env.agents, actions)}
         data = env.step(actions_dict)
         data_processed = dict_to_list(data)
         obs_, rewards, terminations, truncations, info = data_processed
         done = (terminations or truncations)
-        obs_ = add_comm(obs_, new_obs_format, comm_actions, "direct")
+        obs_ = add_comm(obs_, new_obs_format, comm_actions, comm_type)
         # if INFERENCE and done:
         #     env.render(render_mode="human")
         if step >= MAX_STEPS-1 and not INFERENCE:
