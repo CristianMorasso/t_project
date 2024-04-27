@@ -111,7 +111,7 @@ actor_dims = []
 action_dim = []
 comm_type = "directEsc"
 comm_target = env.num_agents -1
-comm_channels= 2
+comm_channels= args.comm_ch
 for i in range(n_agents):
     actor_dims.append(env.observation_space(env.agents[i]).shape[0]+((comm_channels-2 )*comm_target if comm_channels > 2 else 0))#s[list(env.observation_spaces.keys())[i]].shape[0])  
     action_dim.append(env.action_space(env.agents[i]).shape[0]+comm_channels*comm_target)# comm_channels is the comunication channel
