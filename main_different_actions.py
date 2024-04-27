@@ -10,7 +10,8 @@ import torch
 import gym
 import pandas as pd
 import os
-def add_comm(obs, dest_obs, actions, type="broadcast"):
+def add_comm(obs,  actions, type="broadcast",shape=(3,18)):
+    dest_obs = np.zeros(shape)
     if type== "broadcast":
         for i,o in enumerate(obs):
             # o[-3:] = actions
@@ -124,7 +125,7 @@ memory = [MultiAgenReplayBuffer(critic_dims, actor_dims, action_dim,n_agents, ba
 # seed = 0
 rewards_history = []
 rewards_tot = collections.deque(maxlen=100)
-new_obs_format = [np.zeros(d) for d in actor_dims]
+# new_obs_format = [np.zeros(d) for d in actor_dims]
 
 for i in range(MAX_EPISODES):
     
@@ -135,7 +136,7 @@ for i in range(MAX_EPISODES):
     done = [False] * n_agents
     rewards_ep_list = []
     comm_actions = np.zeros((n_agents,comm_target, comm_channels))
-    obs = add_comm(obs, new_obs_format, comm_actions, comm_type)
+    obs = add_comm(obs, comm_actions, comm_type, shape=(n_agents,actor_dims[0]))
     
     # for agent in env.agent_iter():
     # observation, reward, termination, truncation, info = env.last()
@@ -154,7 +155,7 @@ for i in range(MAX_EPISODES):
         data_processed = dict_to_list(data)
         obs_, rewards, terminations, truncations, info = data_processed
         done = (terminations or truncations)
-        obs_ = add_comm(obs_, new_obs_format, comm_actions, comm_type)
+        obs_ = add_comm(obs_, comm_actions, comm_type,shape=(n_agents,actor_dims[0]))
         # if INFERENCE and done:
         #     env.render(render_mode="human")
         if step >= MAX_STEPS-1 and not INFERENCE:
