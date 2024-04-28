@@ -71,6 +71,8 @@ def parse_args():
         help="[sigmoid, softmax, tanh, *emptystring*] to choose last layer act func for listener")
     parser.add_argument("--comm-ch", type=int, default=1,
         help="comm channel for each agent")
+    parser.add_argument("--comm-type", type=str, default="vel_comm",
+        help="comm type")
     args = parser.parse_args()
     # fmt: on
     return args
