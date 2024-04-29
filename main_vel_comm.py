@@ -41,7 +41,7 @@ def add_comm(obs,  actions, type="broadcast",shape=(3,18)):
                 agent_spec_obs = np.array([direct_act[0,1], direct_act[1,1]])
             dest_obs[i][-np.dot(*agent_spec_obs.shape):] = agent_spec_obs.reshape(-1)
             
-    elif type == "vel_comm":
+    elif type == "vel_comm" or type == "self_vel_comm":
         
         for i, o in enumerate(obs):
             dest_obs[i][:o.shape[0]] = o
@@ -134,11 +134,12 @@ action_dim = []
 comm_type = args.comm_type#"vel_comm"
 comm_target = env.num_agents -1
 comm_channels= args.comm_ch
-if comm_type == "vel_comm":
-    comm_channels=0
+comm_channels_net = args.comm_ch
+if comm_type == "vel_comm" or comm_type == "self_vel_comm":
+    comm_channels_net=0
 for i in range(n_agents):
-    actor_dims.append(env.observation_space(env.agents[i]).shape[0]+((comm_channels-2 )*comm_target if comm_channels > 2 else 0))#s[list(env.observation_spaces.keys())[i]].shape[0])  
-    action_dim.append(env.action_space(env.agents[i]).shape[0]+comm_channels*comm_target)# comm_channels is the comunication channel
+    actor_dims.append(env.observation_space(env.agents[i]).shape[0]+((comm_channels_net-2 )*comm_target if comm_channels_net > 2 else 0))#s[list(env.observation_spaces.keys())[i]].shape[0])  
+    action_dim.append(env.action_space(env.agents[i]).shape[0]+comm_channels_net*comm_target)# comm_channels is the comunication channel
 critic_dims = sum(actor_dims)
 # action_dim = env.action_space(env.agents[0]).shape[0]
 maddpg = MADDPG(actor_dims, critic_dims+sum(action_dim), n_agents, action_dim,chkpt_dir=f"{nets_out_dir}", scenario=f"/{env_name}{params}", seed=SEED, args=args)
@@ -176,6 +177,9 @@ for i in range(MAX_EPISODES):
             actions_dict = {agent:action[0,:-comm_channels].reshape(-1) for agent, action in zip(env.agents, actions)}
         elif comm_type == "vel_comm":
             comm_actions = act_to_vel(np.array(actions).squeeze()[:,1:].reshape(n_agents, 4))
+            actions_dict = {agent:action[0].reshape(-1) for agent, action in zip(env.agents, actions)}
+        elif comm_type == "self_vel_comm":
+            comm_actions = obs[:,:2]
             actions_dict = {agent:action[0].reshape(-1) for agent, action in zip(env.agents, actions)}
         data = env.step(actions_dict)
         data_processed = dict_to_list(data)
