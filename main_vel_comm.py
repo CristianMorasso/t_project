@@ -41,7 +41,7 @@ def add_comm(obs,  actions, type="broadcast",shape=(3,18)):
                 agent_spec_obs = np.array([direct_act[0,1], direct_act[1,1]])
             dest_obs[i][-np.dot(*agent_spec_obs.shape):] = agent_spec_obs.reshape(-1)
             
-    elif type == "vel_comm" or type == "self_vel_comm":
+    elif type == "vel_comm" or type == "self_vel_comm" :
         
         for i, o in enumerate(obs):
             dest_obs[i][:o.shape[0]] = o
@@ -50,7 +50,14 @@ def add_comm(obs,  actions, type="broadcast",shape=(3,18)):
             
             # direct_act = actions[idxs]
             dest_obs[i][-np.dot(*actions[idxs].shape):] = actions[idxs].reshape(-1)
-
+    elif type == "closer_target":
+        for i, o in enumerate(obs):
+            dest_obs[i][:o.shape[0]] = o
+            idxs = list(range(len(obs)))
+            idxs.remove(i)
+            
+            # direct_act = actions[idxs]
+            dest_obs[i][-actions[idxs].reshape(-1).shape[0]:] = actions[idxs].reshape(-1)
             
             
     return dest_obs
