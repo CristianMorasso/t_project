@@ -54,6 +54,9 @@ def add_comm(obs,  actions, type="broadcast",shape=(3,18)):
             
             
     return dest_obs
+def closer_target( target_deltas):
+    target_deltas =  target_deltas.reshape(3,3,2)
+    return np.argmin(np.linalg.norm(target_deltas, axis=2), axis=1)
 
 def act_to_vel(actions):
     axis_delta = np.zeros((actions.shape[0],2))
@@ -135,7 +138,7 @@ comm_type = args.comm_type#"vel_comm"
 comm_target = env.num_agents -1
 comm_channels= args.comm_ch
 comm_channels_net = args.comm_ch
-if comm_type == "vel_comm" or comm_type == "self_vel_comm":
+if comm_type == "vel_comm" or comm_type == "self_vel_comm"or comm_type == "closer_target":
     comm_channels_net=0
 for i in range(n_agents):
     actor_dims.append(env.observation_space(env.agents[i]).shape[0]+((comm_channels_net-2 )*comm_target if comm_channels_net > 2 else 0))#s[list(env.observation_spaces.keys())[i]].shape[0])  
@@ -180,6 +183,9 @@ for i in range(MAX_EPISODES):
             actions_dict = {agent:action[0].reshape(-1) for agent, action in zip(env.agents, actions)}
         elif comm_type == "self_vel_comm":
             comm_actions = obs[:,:2]
+            actions_dict = {agent:action[0].reshape(-1) for agent, action in zip(env.agents, actions)}
+        elif  comm_type == "closer_target":
+            comm_actions = closer_target(obs[:,4:10])
             actions_dict = {agent:action[0].reshape(-1) for agent, action in zip(env.agents, actions)}
         data = env.step(actions_dict)
         data_processed = dict_to_list(data)
