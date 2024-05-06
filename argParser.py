@@ -45,7 +45,7 @@ def parse_args():
         help="the batch size of sample from the reply memory")
     parser.add_argument("--exploration-noise", type=float, default=0.1,
         help="the scale of exploration noise")
-    parser.add_argument("--n-ep", type=int, default=50000,
+    parser.add_argument("--n-ep", type=int, default=10000,
         help="number of episode max")
     parser.add_argument("--n-step", type=int, default=1000,
         help="max step for episode")
@@ -73,6 +73,8 @@ def parse_args():
         help="comm channel for each agent")
     parser.add_argument("--comm-type", type=str, default="vel_comm",
         help="comm type")
+    parser.add_argument("--dial", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+        help="Dial implementation")
     args = parser.parse_args()
     # fmt: on
     return args

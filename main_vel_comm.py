@@ -39,7 +39,7 @@ def add_comm(obs,  actions, type="broadcast",shape=(3,18)):
                 agent_spec_obs = np.array([direct_act[0,0], direct_act[1,1]])
             elif i == 2:
                 agent_spec_obs = np.array([direct_act[0,1], direct_act[1,1]])
-            dest_obs[i][-np.dot(*agent_spec_obs.shape):] = agent_spec_obs.reshape(-1)
+            dest_obs[i][-agent_spec_obs.reshape(-1).shape[0]:] = agent_spec_obs.reshape(-1)
             
     elif type == "vel_comm" or type == "self_vel_comm" :
         
@@ -93,7 +93,7 @@ score_history = []
 WANDB = False
 
 project_name = "MADDPG"
-out_dir = "out_csv" if args.seed == 1 else "seeds_test"
+out_dir = "out_csv_mio" if args.seed == 1 else "seeds_test"
 nets_out_dir = "nets" if args.seed == 1 else "nets/seeds_test"
 params = f"_{args.mod_params}"
 env_name = args.env_id
@@ -145,6 +145,9 @@ comm_type = args.comm_type#"vel_comm"
 comm_target = env.num_agents -1
 comm_channels= args.comm_ch
 comm_channels_net = args.comm_ch
+if comm_type == "directEsc":
+    args.comm_channels = comm_channels
+    args.comm_target = comm_target
 if comm_type == "vel_comm" or comm_type == "self_vel_comm"or comm_type == "closer_target":
     comm_channels_net=0
 for i in range(n_agents):
@@ -205,14 +208,20 @@ for i in range(MAX_EPISODES):
             #print("MAX STEPS REACHED")
             done = [True] * n_agents
             # break
-        if not INFERENCE:
+        if not INFERENCE and not args.dial:
             memory[k].store_transition(obs, actions, rewards, obs_, done)
-        
-        if (not INFERENCE) and total_steps % args.learn_delay == 0:
+        if args.dial:
+            if step > 0:
+                memory = [obs, obs_, rewards, done,actions, actor_state_t0]
+                maddpg.learn_dial(memory)
+             
+        elif (not INFERENCE) and total_steps % args.learn_delay == 0:
             maddpg.learn(memory)
-        
+
+        actor_state_t0 = obs
         obs = obs_
         rewards_ep_list.append(rewards) 
+        
         score += rewards[0]#+rewards["agent_1"]) #sum(rewards.values())
         step += 1
         total_steps += 1
