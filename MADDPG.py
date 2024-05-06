@@ -192,7 +192,7 @@ class MADDPG:
                 # actions = other_agent_policy.reshape(len(other_agent_policy),len(idxs),actor_action[0].shape[1])[:,:,-self.args.comm_channels*self.args.comm_target:]
                 # direct_act = actions[idxs]
                 #shape (n_other_agent, batch_size, comm)
-                other_agent_policy = torch._sparse_softmax_backward_data([self.agents[j].actor[k](torch.tensor(actor_state_t0[j], dtype=torch.float32, device=device)) for j in idxs])
+                other_agent_policy = torch.stack([self.agents[j].actor[k](torch.tensor(actor_state_t0[j], dtype=torch.float32, device=device)) for j in idxs])
                 actions = other_agent_policy[:,:,-self.args.comm_channels*self.args.comm_target:]
                 
                 if i == 0:
