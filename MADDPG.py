@@ -20,7 +20,7 @@ from pettingzoo.mpe import simple_adversary_v3
 
 def noise_mul_func(ep, n_ep):
     ep_temp = ep/(n_ep*2/5000)
-    return round((98.5/100)**((ep_temp)/4), 2)
+    return round((98.8/100)**((ep_temp)/4), 2)
 class MADDPG:
     def __init__(self, actor_dims, critic_dims,  n_agents,n_actions, scenario="simple", gamma=0.99, tau=0.01, chkpt_dir='tmp', seed =0, args = None):
         self.gamma = args.gamma
@@ -31,10 +31,15 @@ class MADDPG:
         self.args = args
         torch.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
-        
-        for i in range(self.n_agents):
-            agent = Agent(actor_dims[i], critic_dims, n_actions[i], n_agents, i, chkpt_dir=chkpt_dir+scenario, gamma=self.gamma, tau=self.tau, seed=seed, noise_func = noise_mul_func, args=self.args)
-            self.agents.append(agent)
+        if args.par_sharing:
+            agent = Agent(actor_dims[0], critic_dims, n_actions[0], n_agents, 0, chkpt_dir=chkpt_dir+scenario, gamma=self.gamma, tau=self.tau, seed=seed, noise_func = noise_mul_func, args=self.args)
+            for i in range(self.n_agents):
+                # agent = Agent(actor_dims[i], critic_dims, n_actions[i], n_agents, i, chkpt_dir=chkpt_dir+scenario, gamma=self.gamma, tau=self.tau, seed=seed, noise_func = noise_mul_func, args=self.args)
+                self.agents.append(agent)
+        else: 
+            for i in range(self.n_agents):
+                agent = Agent(actor_dims[i], critic_dims, n_actions[i], n_agents, i, chkpt_dir=chkpt_dir+scenario, gamma=self.gamma, tau=self.tau, seed=seed, noise_func = noise_mul_func, args=self.args)
+                self.agents.append(agent)
         self.update = 0
     
     def save_checkpoint(self):
@@ -64,10 +69,6 @@ class MADDPG:
             state = torch.tensor(state, dtype=torch.float32).to(device)
             new_state = torch.tensor(new_state, dtype=torch.float32).to(device)
             reward = torch.tensor(reward, dtype=torch.float32).to(device)
-
-            
-            
-
             # target value y^j
             # critic update
             for i in range(self.n_agents):
@@ -186,11 +187,6 @@ class MADDPG:
                 for ii in range(self.n_agents):
                     self.agents[ii].actor[k].optimizer.zero_grad()
                 
-                
-                # direct_act = actions[idxs]
-                # other_agent_policy = torch.cat([self.agents[j].actor[k](torch.tensor(actor_state_t0[j], dtype=torch.float32, device=device)) for j in idxs], dim=1)
-                # actions = other_agent_policy.reshape(len(other_agent_policy),len(idxs),actor_action[0].shape[1])[:,:,-self.args.comm_channels*self.args.comm_target:]
-                # direct_act = actions[idxs]
                 #shape (n_other_agent, batch_size, comm)
                 other_agent_policy = torch.stack([self.agents[j].actor[k](torch.tensor(actor_state_t0[j], dtype=torch.float32, device=device)) for j in idxs])
                 actions = other_agent_policy[:,:,-self.args.comm_channels*self.args.comm_target:]

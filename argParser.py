@@ -75,6 +75,8 @@ def parse_args():
         help="comm type")
     parser.add_argument("--dial", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
         help="Dial implementation")
+    parser.add_argument("--par-sharing", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+        help="parameter sharing for dial")
     args = parser.parse_args()
     # fmt: on
     return args

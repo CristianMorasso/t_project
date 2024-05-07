@@ -26,11 +26,15 @@ class MultiAgenReplayBuffer:
         self.actor_state_memory = []
         self.actor_new_state_memory = []
         self.actor_action_memory = []
-
-        for i in range(self.n_agents):
+        if False:#self.args.par_sharing:
             self.actor_state_memory.append(np.zeros((self.buffer_size, self.actor_dims[i])))
             self.actor_new_state_memory.append(np.zeros((self.buffer_size, self.actor_dims[i])))
             self.actor_action_memory.append(np.zeros((self.buffer_size, self.n_actions[i])))
+        else:
+            for i in range(self.n_agents):
+                self.actor_state_memory.append(np.zeros((self.buffer_size, self.actor_dims[i])))
+                self.actor_new_state_memory.append(np.zeros((self.buffer_size, self.actor_dims[i])))
+                self.actor_action_memory.append(np.zeros((self.buffer_size, self.n_actions[i])))
 
 
     def store_transition(self, state, action, reward, new_state, done):
@@ -46,11 +50,15 @@ class MultiAgenReplayBuffer:
 
         # self.action_memory[index] = action
 
-
-        for i in range(self.n_agents):
-            self.actor_state_memory[i][index] = state[i]
-            self.actor_new_state_memory[i][index] = new_state[i]
-            self.actor_action_memory[i][index] = action[i]
+        if False:#self.args.par_sharing:
+            self.actor_state_memory[0][index] = state[i]
+            self.actor_new_state_memory[0][index] = new_state[i]
+            self.actor_action_memory[0][index] = action[i]
+        else:
+            for i in range(self.n_agents):
+                self.actor_state_memory[i][index] = state[i]
+                self.actor_new_state_memory[i][index] = new_state[i]
+                self.actor_action_memory[i][index] = action[i]
 
         self.pointer += 1
 
