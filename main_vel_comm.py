@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import collections
+import copy
 import numpy as np
 from pettingzoo.mpe import simple_reference_v3, simple_adversary_v3, simple_push_v3, simple_v3, simple_spread_v3, simple_speaker_listener_v4
 from MADDPG import MADDPG
@@ -93,7 +94,7 @@ score_history = []
 WANDB = False
 
 project_name = "MADDPG"
-out_dir = "out_csv_mio" if args.seed == 1 else "seeds_test"
+out_dir = "out_csv" if args.seed == 1 else "seeds_test"
 nets_out_dir = "nets" if args.seed == 1 else "nets/seeds_test"
 params = f"_{args.mod_params}"
 env_name = args.env_id
@@ -208,18 +209,22 @@ for i in range(MAX_EPISODES):
             #print("MAX STEPS REACHED")
             done = [True] * n_agents
             # break
-        if not INFERENCE and not args.dial:
+        if not INFERENCE :
             memory[k].store_transition(obs, actions, rewards, obs_, done)
         if args.dial:
             if step > 0:
-                memory = [obs, obs_, rewards, done,actions, actor_state_t0]
-                maddpg.learn_dial(memory)
+                
+                if args.par_sharing:
+                    
+                    maddpg.learn_dial_par_sharing([obs, obs_, rewards, done,actions, actor_state_t0])
+                else:
+                    maddpg.learn_dial(memory)
              
         elif (not INFERENCE) and total_steps % args.learn_delay == 0:
             maddpg.learn(memory)
 
-        actor_state_t0 = obs
-        obs = obs_
+        actor_state_t0 = copy.deepcopy(obs)
+        obs = copy.deepcopy(obs_)
         rewards_ep_list.append(rewards) 
         
         score += rewards[0]#+rewards["agent_1"]) #sum(rewards.values())

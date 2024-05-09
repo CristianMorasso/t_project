@@ -5,28 +5,44 @@ import torch.nn.functional as F
 #import wandb
 
 class Actor(nn.Module):
-    def __init__(self, state_dim, action_dim, name,lr=0.001, hidden_dim=256, chkpt_dir='tmp',out_act_string=""):
+    def __init__(self, state_dim, action_dim, name,lr=0.001, hidden_dim=256, chkpt_dir='tmp',out_act_string="", net_type="MLP"):
         super(Actor, self).__init__()
         act_func_dict = {"softmax": lambda x: torch.softmax(x, dim=-1), "sigmoid": lambda x : torch.sigmoid(x),\
 		 "tanh": lambda x : torch.tanh(x), "": lambda x:x}
-        self.fc1 = nn.Linear(state_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, action_dim)
+        if net_type == "MLP":
+            self.fc1 = nn.Linear(state_dim, hidden_dim)
+            self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+            self.fc3 = nn.Linear(hidden_dim, action_dim)
+        elif net_type == "LSTM":
+            self.lstm = nn.LSTM(state_dim, state_dim, batch_first=True)
+            self.fc = nn.Linear(state_dim, action_dim)
+
+        self.net_type = net_type
         self.out_act_func = act_func_dict[out_act_string]
         self.name = name
         self.chkpt_dir = chkpt_dir
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.to(self.device)
-        
+        self.h0 = torch.zeros(1, 1, state_dim, requires_grad=False).to(self.device)
+        self.c0 = torch.zeros(1, 1, state_dim, requires_grad=False).to(self.device)
+
+
 
 
 
     def forward(self, state):
         # x = x.view(1, -1)
-        x = F.relu(self.fc1(state))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+        if self.net_type == "MLP":
+            x = F.relu(self.fc1(state))
+            x = F.relu(self.fc2(x))
+            x = self.fc3(x)
+        elif self.net_type == "LSTM":
+            x, (self.h0, self.c0) = self.lstm(state.view(state.shape[0],1,-1),(self.h0, self.c0))
+            self.h0 = self.h0.detach()
+            self.c0 = self.c0.detach()
+            x = self.fc(x.view(x.shape[0],-1))
+        
         x = self.out_act_func(x)
         #x = torch.sigmoid(x) #torch.softmax(x, dim=-1)#torch.tanh(x)
         return x
@@ -79,10 +95,10 @@ class Agent:
         torch.backends.cudnn.deterministic = True
         # sl_env_out = args.out_act_ls if agent_idx else args.out_act_sp
         out_act_string =  args.out_act#sl_env_out if args.env_id == "simple_speaker_listener_v4" else args.out_act
-        self.actor = [Actor(actor_dims, n_actions, self.name+'_actor_policy'+str(i), chkpt_dir=chkpt_dir,lr=args.learning_rate, hidden_dim=args.actor_hidden, out_act_string = out_act_string) for i in range(args.sub_policy)]
+        self.actor = [Actor(actor_dims, n_actions, self.name+'_actor_policy'+str(i), chkpt_dir=chkpt_dir,lr=args.learning_rate, hidden_dim=args.actor_hidden, out_act_string = out_act_string, net_type=args.net_type) for i in range(args.sub_policy)]
         self.critic = [Critic(critic_dims, n_actions, n_agents=n_agents, name=self.name+'_critic'+str(i), chkpt_dir=chkpt_dir,lr=args.learning_rate,hidden_dim=args.critic_hidden) for i in range(args.sub_policy)]
 
-        self.target_actor = [Actor(actor_dims, n_actions, self.name+'_target_actor'+str(i), chkpt_dir=chkpt_dir,lr=args.learning_rate,hidden_dim=args.actor_hidden, out_act_string = out_act_string)for i in range(args.sub_policy)]
+        self.target_actor = [Actor(actor_dims, n_actions, self.name+'_target_actor'+str(i), chkpt_dir=chkpt_dir,lr=args.learning_rate,hidden_dim=args.actor_hidden, out_act_string = out_act_string, net_type=args.net_type)for i in range(args.sub_policy)]
         self.target_critic = [Critic(critic_dims, n_actions, n_agents=n_agents, name=self.name+'_target_critic'+str(i), chkpt_dir=chkpt_dir,lr=args.learning_rate,hidden_dim=args.critic_hidden)for i in range(args.sub_policy)]
         if noise_func is None:
             self.noise_func = lambda x: 0.1

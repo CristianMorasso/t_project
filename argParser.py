@@ -73,6 +73,8 @@ def parse_args():
         help="comm channel for each agent")
     parser.add_argument("--comm-type", type=str, default="vel_comm",
         help="comm type")
+    parser.add_argument("--net-type", type=str, default="MLP",
+        help="network type CAPS")
     parser.add_argument("--dial", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
         help="Dial implementation")
     parser.add_argument("--par-sharing", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
