@@ -18,7 +18,7 @@ def add_comm(obs,  actions, type="broadcast",shape=(3,18)):
             # o[-3:] = actions
             # obs[i] = o
             dest_obs[i][:o.shape[0]] = o
-            dest_obs[i][-3:] = actions
+            dest_obs[i][-3:] = actions.reshape(-1)
         
     elif type == "direct":
         for i, o in enumerate(obs):
@@ -123,7 +123,7 @@ import sys
 # sys.stdout = open('file_out.txt', 'w')
 # print('Hello World!')
 if INFERENCE:
-    env = env_class.parallel_env(max_cycles=100, continuous_actions=True, render_mode="human")
+    env = env_class.parallel_env(max_cycles=100, n_agents=2,continuous_actions=True, render_mode="human")
 else:
     env = env_class.parallel_env(continuous_actions=True)
     
@@ -143,9 +143,16 @@ n_agents = env.num_agents
 actor_dims = []
 action_dim = []
 comm_type = args.comm_type#"vel_comm"
-comm_target = env.num_agents -1
-comm_channels= args.comm_ch
-comm_channels_net = args.comm_ch
+if not comm_type is None:
+    comm_target = env.num_agents -1
+    comm_channels= args.comm_ch
+    comm_channels_net = args.comm_ch
+else: 
+    comm_target = 0
+    comm_channels= 0
+    comm_channels_net = 0
+if comm_type == "broadcast":
+    comm_target = 1
 if comm_type == "directEsc":
     args.comm_channels = comm_channels
     args.comm_target = comm_target
@@ -173,8 +180,10 @@ for i in range(MAX_EPISODES):
     obs=list(obs.values())
     done = [False] * n_agents
     rewards_ep_list = []
-    comm_actions = np.zeros((n_agents,comm_target, 1 if comm_type == "vel_comm" else comm_channels ))
-    obs = add_comm(obs, comm_actions.squeeze(), comm_type, shape=(n_agents,actor_dims[0]))
+    if not comm_type is None:
+        comm_actions = np.zeros((n_agents,comm_target, 1 if comm_type == "vel_comm" else comm_channels ))
+        if comm_type == "broadcast": comm_actions = np.zeros(3)
+        obs = add_comm(obs, comm_actions.squeeze(), comm_type, shape=(n_agents,actor_dims[0]))
     
     # for agent in env.agent_iter():
     # observation, reward, termination, truncation, info = env.last()
@@ -198,11 +207,18 @@ for i in range(MAX_EPISODES):
         elif  comm_type == "closer_target":
             comm_actions = closer_target(obs[:,4:10])
             actions_dict = {agent:action[0].reshape(-1) for agent, action in zip(env.agents, actions)}
+        elif  comm_type == "broadcast":
+            
+            comm_actions = np.array(actions).squeeze()[:,-1].reshape(n_agents, 1)
+            actions_dict = {agent:action[0,:-1].reshape(-1) for agent, action in zip(env.agents, actions)}
+        else: 
+            actions_dict = {agent:action[0].reshape(-1) for agent, action in zip(env.agents, actions)}
         data = env.step(actions_dict)
         data_processed = dict_to_list(data)
         obs_, rewards, terminations, truncations, info = data_processed
         done = (terminations or truncations)
-        obs_ = add_comm(obs_, comm_actions, comm_type, shape=(n_agents,actor_dims[0]))
+        if not comm_type is None:
+            obs_ = add_comm(obs_, comm_actions, comm_type, shape=(n_agents,actor_dims[0]))
         # if INFERENCE and done:
         #     env.render(render_mode="human")
         if step >= MAX_STEPS-1 and not INFERENCE:
@@ -211,12 +227,12 @@ for i in range(MAX_EPISODES):
             # break
         if not INFERENCE :
             memory[k].store_transition(obs, actions, rewards, obs_, done)
-        if args.dial:
+        if args.dial and step % BATCH_SIZE == 0:
             if step > 0:
                 
                 if args.par_sharing:
                     
-                    maddpg.learn_dial_par_sharing([obs, obs_, rewards, done,actions, actor_state_t0])
+                    maddpg.learn_dial_par_sharing(memory[0].sample_last_batch())
                 else:
                     maddpg.learn_dial(memory)
              

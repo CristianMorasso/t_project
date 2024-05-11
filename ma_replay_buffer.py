@@ -78,6 +78,22 @@ class MultiAgenReplayBuffer:
 
         return state, new_state, reward, terminal, actor_state, actor_new_state, actor_action,actor_state_t0
     
+    def sample_last_batch(self):
+        max_memory = min(self.pointer, self.buffer_size)
+        batch = self.batch_size
+
+        state = self.state_memory[-batch:]
+        new_state = self.new_state_memory[-batch:]
+        reward = self.reward_memory[-batch:]
+        terminal = self.terminal_memory[-batch:]
+
+        actor_state_t0 = [self.actor_state_memory[i][-batch-1:] for i in range(self.n_agents)]
+        actor_state = [self.actor_state_memory[i][-batch:] for i in range(self.n_agents)]
+        actor_new_state = [self.actor_new_state_memory[i][-batch:] for i in range(self.n_agents)]
+        actor_action = [self.actor_action_memory[i][-batch:] for i in range(self.n_agents)]
+
+        return state, new_state, reward, terminal, actor_state, actor_new_state, actor_action,actor_state_t0
+    
     def ready(self):
         if self.pointer >= self.batch_size:
             return True

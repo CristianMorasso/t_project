@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import gym
+from torch.nn.utils import clip_grad_norm_
 # from gym import make_env
 from actor_critic_nets import *
  	
@@ -73,8 +74,8 @@ class MADDPG:
             
             device = self.agents[0].actor[k].device
 
-            state = torch.tensor(state.reshape(1,-1), dtype=torch.float32).to(device)
-            new_state = torch.tensor(new_state.reshape(1,-1), dtype=torch.float32).to(device)
+            state = torch.tensor(np.array(state).reshape(1,-1), dtype=torch.float32).to(device)
+            new_state = torch.tensor(np.array(new_state).reshape(1,-1), dtype=torch.float32).to(device)
             reward = torch.tensor(np.array(reward).reshape(1,-1), dtype=torch.float32).to(device)
             terminal = torch.tensor(np.array(terminal).reshape(1,-1), dtype=torch.float32).to(device)
             # target value y^j
@@ -88,8 +89,10 @@ class MADDPG:
             # state = torch.tensor(state, dtype=torch.float32).to(device)
             # new_state = torch.tensor(new_state, dtype=torch.float32).to(device)
             # reward = torch.tensor(reward, dtype=torch.float32).to(device)
-            terminal = torch.tensor(terminal.reshape(1,-1), dtype=torch.float32).to(device)
+            # terminal = torch.tensor(terminal.reshape(1,-1), dtype=torch.float32).to(device)
             #we just need one critic
+            
+
             with torch.no_grad():
                 target_action = torch.cat([self.agents[j].target_actor[k](torch.tensor(actor_new_state[j], dtype=torch.float32, device=device)) for j in range(self.n_agents)], dim=1)
                 target_critic_value =  self.agents[0].target_critic[k](new_state, target_action).view(-1)
@@ -101,8 +104,9 @@ class MADDPG:
             q_values = self.agents[0].critic[k](state, old_actions).view(-1)
             
             loss = F.mse_loss(q_values, next_q_value)
-            
+                
             loss.backward(retain_graph=False)
+            clip_grad_norm_(parameters=self.agents[0].critic[k].get_params(), max_norm=10)
             self.agents[0].critic[k].optimizer.step()
 
             self.agents[0].actor[k].optimizer.zero_grad()
@@ -112,9 +116,10 @@ class MADDPG:
             #     policy_action = torch.cat([self.agents[j].actor[k](torch.tensor(actor_state[j], dtype=torch.float32, device=device)) for j in range(self.n_agents)], dim=1)
             #     actor_loss += -self.agents[i].critic[k](state, policy_action).mean()
 
-            policy_action = torch.cat([self.agents[j].actor[k](torch.tensor(actor_state[j], dtype=torch.float32, device=device)) for j in range(self.n_agents)], dim=1)
+            policy_action = torch.cat([self.agents[0].actor[k](torch.tensor(actor_state[j], dtype=torch.float32, device=device)) for j in range(self.n_agents)], dim=1)
             actor_loss = -self.agents[0].critic[k](state, policy_action).mean()
             actor_loss.backward()
+            clip_grad_norm_(parameters=self.agents[0].actor[k].get_params(), max_norm=10)
             self.agents[0].actor[k].optimizer.step()
             
                 # target update
