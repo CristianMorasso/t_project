@@ -120,10 +120,10 @@ if not os.path.isdir(f"{nets_out_dir}"):
 if not os.path.isdir(f"{nets_out_dir}/{env_name}{params}"):
     os.mkdir(f"{nets_out_dir}/{env_name}{params}")
 import sys
-# sys.stdout = open('file_out.txt', 'w')
+sys.stdout = open('file_out.txt', 'w')
 # print('Hello World!')
 if INFERENCE:
-    env = env_class.parallel_env(max_cycles=100, n_agents=2,continuous_actions=True, render_mode="human")
+    env = env_class.parallel_env(max_cycles=100, n_agents=3,continuous_actions=True, render_mode="human")
 else:
     env = env_class.parallel_env(continuous_actions=True)
     
@@ -273,4 +273,4 @@ for i in range(MAX_EPISODES):
 reward_history_df = pd.DataFrame(rewards_history)
 reward_history_df.to_csv(f"{out_dir}/{env_name}{params}.csv")
 print("-----END-----")
-# sys.stdout.close()
+sys.stdout.close()
